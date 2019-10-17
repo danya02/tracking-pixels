@@ -27,7 +27,7 @@ class Pixel(MyModel):
     access_password = BlobField()
 
 class Visit(MyModel):
-    visit_id = AutoField
+    visit_id = AutoField()
     pixel = ForeignKeyField(Pixel, backref='visits')
     access_date = DateTimeField(default=datetime.datetime.now)
     ip_address = IPField()
@@ -105,11 +105,21 @@ def stats(address):
         return 'pixel id '+address+' doesnt exist', 404
     if request.method=='GET':
         return render_template('password_validate.html',action='view statistics for '+address, form_action=url_for('stats',address=address))
-    if hash_password(bytes(request.form['password'], 'utf-8'))==pixel.access_password:
+    
+    authed = False
+    try:
+        authed = authed or hash_password(bytes(request.form['password'], 'utf-8'))==pixel.access_password
+    except:
+        pass
+    try:
+        dec_pass = decrypt(base64.b64decode(bytes(request.form['enc_password'], 'utf-8')))
+        authed = authed or dec_pass==pixel.access_password
+    except:
+        pass
+    if authed:
         enc_password = base64.b64encode(encrypt(pixel.access_password))
         enc_password = str(enc_password, 'utf-8')
-        query=Visit.select().where(Visit.pixel == pixel)
-        return render_template('view_stats.html', query_result=query,
+        return render_template('view_stats.html', query_result=pixel.visits,
                 enc_password=enc_password,
                 name=pixel.name,
                 description=pixel.description,
@@ -143,7 +153,22 @@ def delete(address):
 
 @app.route('/delete_visit', methods=['POST'])
 def delete_visit():
-    return 'Visit deletion: To be implemented'
+    enc_password = request.form['enc_password']
+    password = decrypt(base64.b64decode(enc_password))
+    try:
+        visit = Visit.get(Visit.visit_id==request.form['visit_id'])
+    except DoesNotExist:
+        return 'visit id '+str(request.form['visit_id'])+' doesnt exist', 404
+    pixel = visit.pixel
+    ok=False
+    if pixel.access_password == password:
+        ok=True
+        visit.delete_instance()
+    return render_template('visit_delete_result.html',ok=ok,
+            stats_action=url_for('stats', address=pixel.address),
+            enc_password=enc_password, pixel_id=pixel.id)
+
+
 
 @app.route('/change_password', methods=['POST'])
 def change_password():

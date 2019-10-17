@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+	<head>
+		<style>
+.btn {
+width:  100%;
+height: 400px;
+}
+		</style>
+		<title>Visit {% if ok %}deleted{% else %}not deleted{%endif%}</title>
+	</head>
+	<body>
+		<h1>Visit was {% if ok %}deleted{% else %}not deleted{%endif%}</h1>
+		{% if ok %}
+		<form action="{{ stats_action }}" method="post">
+			Press this button to return to stats.<br>
+			<input type="hidden" name="enc_password" value="{{enc_password}}">
+			<input type="hidden" name="pixel_id" value="{{pixel_id}}">
+			<input type="submit" value="To stats!" class="btn">
+		</form>
+
+		{% else %}<p>The authentication failed. Please re-enter <a href="{{stats_action}}">the stats page</a> and re-auth.</p>{%endif%}
+	</body>
+</html>
