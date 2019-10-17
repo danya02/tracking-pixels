@@ -147,7 +147,18 @@ def delete_visit():
 
 @app.route('/change_password', methods=['POST'])
 def change_password():
-    return 'Password changing: To be implemented'
+    pixel_id = request.form['pixel_id']
+    try:
+        pixel = Pixel.get(Pixel.pixel_id==pixel_id)
+    except DoesNotExist:
+        return 'pixel id '+str(pixel_id)+' doesnt exist', 404
+
+    if hash_password(bytes(request.form['old-password'], 'utf8'))==pixel.access_password:
+        pixel.access_password=hash_password(bytes(request.form['new-password'],'utf-8'))
+        pixel.save()
+        return render_template('change_password_ok.html',name=pixel.name,stats_page=url_for('stats',address=pixel.address))
+    else:
+        return render_template('change_password_fail.html', stats_page=url_for('stats',address=pixel.address))
 
 if __name__ == '__main__':
     app.run()
