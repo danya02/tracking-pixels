@@ -1,5 +1,7 @@
-from flask import Flask
+from flask import Flask, make_response
 from peewee import *
+
+import base64
 import datetime
 
 db = SqliteDatabase('tracking-pixels.db')
@@ -13,6 +15,7 @@ class Pixel(MyModel):
     name = CharField()
     address = CharField()
     description = TextField()
+    access_password = CharField()
 
 class Visit(MyModel):
     pixel = ForeignKeyField(Pixel, backref='visits')
@@ -26,9 +29,26 @@ db.create_tables([Pixel, Visit])
 
 app = Flask(__name__)
 
-@app.route('/')
-def hello_world():
-    return 'Hello World!'
+PNG_PIXEL = base64.b64decode(b'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGP6zwAAAgcBApocMXEAAAAASUVORK5CYII=')
+
+@app.route('/<address>')
+def serve_pixel(address):
+    # TODO: add tracking here
+    response = make_response(PNG_PIXEL)
+    response.headers.set('Content-Type', 'image/png')
+    return response
+
+@app.route('/create')
+def create():
+    return 'Creation: To be implemented'
+
+@app.route('/stats/<address>')
+def stats(address):
+    return 'Statistics: To be implemented'
+
+@app.route('/delete/<address>')
+def delete(address):
+    return 'Deletion: To be implemented'
 
 if __name__ == '__main__':
     app.run()
