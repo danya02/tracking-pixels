@@ -123,7 +123,23 @@ def stats(address):
 
 @app.route('/delete/<address>', methods=['GET','POST'])
 def delete(address):
-    return 'Deletion: To be implemented'
+    try:
+        pixel = Pixel.get(Pixel.address==address)
+    except DoesNotExist:
+        return 'pixel id '+address+' doesnt exist', 404
+    if request.method=='GET':
+        return render_template('password_validate.html',action='delete the pixel at '+address, form_action=url_for('delete',address=address))
+    if hash_password(bytes(request.form['password'], 'utf-8'))==pixel.access_password:
+        del_query = Visit.delete().where(Visit.pixel==pixel)
+        del_rows = del_query.execute()
+        response = render_template('delete_pixel_result.html', 
+                name=pixel.name,
+                description=pixel.description,
+                visits=str(del_rows),
+                address=url_for('serve_pixel',address=pixel.address,_external=True),
+                new_userpage=url_for('create'))
+        pixel.delete_instance()
+        return response
 
 @app.route('/delete_visit', methods=['POST'])
 def delete_visit():
