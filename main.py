@@ -1,7 +1,10 @@
-from flask import Flask, make_response, request
+from flask import Flask, make_response, request, render_template, url_for
 from peewee import *
-import uuid
 
+
+
+import uuid
+import hashlib
 import base64
 import datetime
 import json
@@ -17,9 +20,10 @@ class Pixel(MyModel):
     name = CharField()
     address = CharField()
     description = TextField()
-    access_password = CharField()
+    access_password = BlobField()
 
 class Visit(MyModel):
+    visit_id = AutoField
     pixel = ForeignKeyField(Pixel, backref='visits')
     access_date = DateTimeField(default=datetime.datetime.now)
     ip_address = IPField()
@@ -30,6 +34,9 @@ class Visit(MyModel):
 db.create_tables([Pixel, Visit])
 
 app = Flask(__name__)
+
+def hash_password(p):
+    return hashlib.scrypt(p, salt=b'SuperCaliFrag1l!st1que_Exp1al1d0c10us!', n=16384, r=8, p=1)
 
 PNG_PIXEL = base64.b64decode(b'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGP6zwAAAgcBApocMXEAAAAASUVORK5CYII=')
 
@@ -50,14 +57,24 @@ def serve_pixel(address):
 @app.route('/create', methods=['GET','POST'])
 def create():
     uid = str(uuid.uuid4())
+    password = hash_password(bytes(uid, 'utf-8'))
     p = Pixel(name='Test pixel '+uid, address=uid, description='Test pixel at addr '+uid, access_password=uid)
     p.save()
 
     return 'Your pixel address is: '+uid
 
-@app.route('/stats/<address>')
+@app.route('/stats/<address>', methods=['GET', 'POST'])
 def stats(address):
-    return 'Statistics: To be implemented'
+    try:
+        pixel = Pixel.get(Pixel.address==address)
+    except DoesNotExist:
+        return 'pixel id '+address+' doesnt exist', 404
+    if request.method=='GET':
+        return render_template('password_validate.html',action='view statistics for '+address, form_action=url_for('stats',address=address))
+    if hash_password(request.form['password'])==pixel.access_password:
+        return 'Password is OK' # TODO: add actual stats page
+    else:
+        return 'Password is FAIL', 403
 
 @app.route('/delete/<address>', methods=['GET','POST'])
 def delete(address):
