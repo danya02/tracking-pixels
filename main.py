@@ -58,7 +58,7 @@ def serve_pixel(address):
 def create():
     uid = str(uuid.uuid4())
     password = hash_password(bytes(uid, 'utf-8'))
-    p = Pixel(name='Test pixel '+uid, address=uid, description='Test pixel at addr '+uid, access_password=uid)
+    p = Pixel(name='Test pixel '+uid, address=uid, description='Test pixel at addr '+uid, access_password=password)
     p.save()
 
     return 'Your pixel address is: '+uid
@@ -71,7 +71,7 @@ def stats(address):
         return 'pixel id '+address+' doesnt exist', 404
     if request.method=='GET':
         return render_template('password_validate.html',action='view statistics for '+address, form_action=url_for('stats',address=address))
-    if hash_password(request.form['password'])==pixel.access_password:
+    if hash_password(bytes(request.form['password'], 'utf-8'))==pixel.access_password:
         return 'Password is OK' # TODO: add actual stats page
     else:
         return 'Password is FAIL', 403
