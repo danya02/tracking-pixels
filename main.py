@@ -22,7 +22,7 @@ class MyModel(Model):
 class Pixel(MyModel):
     pixel_id = AutoField()
     name = TextField()
-    address = TextField(unique=True)
+    address = CharField(unique=True)
     description = TextField()
     access_password = BlobField()
 
