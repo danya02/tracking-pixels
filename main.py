@@ -69,11 +69,12 @@ def serve_pixel(address):
     try:
         pixel = Pixel.get(Pixel.address==address)
     except DoesNotExist:
-        return 'pixel id '+address+' doesnt exist', 404
-    if Visit.select().where(Visit.pixel == pixel).count()==0:
-        pass # TODO: do something interesting if it's the first visit on this pixel
-    visit = Visit(pixel=pixel, user_agent=request.headers.get('User-Agent', None), ip_address=request.remote_addr, additional_params=json.dumps(request.args))
-    visit.save()
+        pass # may return error here instead, but focus on concealment of pixel -- if this errors while embedded, the pixel may be visible as a placeholder
+    else:
+        if Visit.select().where(Visit.pixel == pixel).count()==0:
+            pass # TODO: do something interesting if it's the first visit on this pixel
+        visit = Visit(pixel=pixel, user_agent=request.headers.get('User-Agent', None), ip_address=request.remote_addr, additional_params=json.dumps(request.args))
+        visit.save()
     response = make_response(PNG_PIXEL)
     response.headers.set('Content-Type', 'image/png')
     return response
@@ -137,7 +138,7 @@ def delete(address):
     try:
         pixel = Pixel.get(Pixel.address==address)
     except DoesNotExist:
-        return 'pixel id '+address+' doesnt exist', 404
+        return 'Pixel identified by '+address+' does not exist. Please start what you were doing from the beginning.', 404
     if request.method=='GET':
         return render_template('password_validate.html', fail=False, action='delete the pixel at '+address, form_action=url_for('delete',address=address))
     if hash_password(bytes(request.form['password'], 'utf-8'))==pixel.access_password:
@@ -162,7 +163,7 @@ def delete_visit():
     try:
         visit = Visit.get(Visit.visit_id==request.form['visit_id'])
     except DoesNotExist:
-        return 'visit id '+str(request.form['visit_id'])+' doesnt exist', 404
+        return 'Visit identified by '+str(request.form['visit_id'])+' does not exist. Please start what you were doing from the beginning.', 404
     pixel = visit.pixel
     ok=False
     if pixel.access_password == password:
@@ -180,7 +181,7 @@ def change_password():
     try:
         pixel = Pixel.get(Pixel.pixel_id==pixel_id)
     except DoesNotExist:
-        return 'pixel id '+str(pixel_id)+' doesnt exist', 404
+        return 'Pixel identified by '+str(pixel_id)+' does not exist. Please start what you were doing from the beginning.', 404
 
     if hash_password(bytes(request.form['old-password'], 'utf8'))==pixel.access_password:
         pixel.access_password=hash_password(bytes(request.form['new-password'],'utf-8'))
