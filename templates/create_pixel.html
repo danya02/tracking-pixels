@@ -8,7 +8,7 @@
 
 		<form action="{{form_action}}" method="post">
 			This pixel's name: <input type="text" id="name" name="name"><br>
-			The pixel will be available at this address: {{ base_url }} <input type="text" id="address" name="address" value="{{ default_address }}"><br>
+			The pixel will be available at this address: {{ base_url }} <input type="text" id="address" name="address" value="{{ default_address }}" maxlength="240"><br>
 			This pixel's description: <input type="text" id="description" name="description"><br>
 			The password you'll need to view stats and delete the pixel: <input type="password" id="password" name="password"><br>
 			<input type="submit" value="Submit">

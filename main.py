@@ -104,7 +104,7 @@ def stats(address):
     except DoesNotExist:
         return 'pixel id '+address+' doesnt exist', 404
     if request.method=='GET':
-        return render_template('password_validate.html',action='view statistics for '+address, form_action=url_for('stats',address=address))
+        return render_template('password_validate.html',fail=False,action='view statistics for '+address, form_action=url_for('stats',address=address))
     
     authed = False
     try:
@@ -116,6 +116,9 @@ def stats(address):
         authed = authed or dec_pass==pixel.access_password
     except:
         pass
+    if not authed:
+        return render_template('password_validate.html',fail=True,action='view statistics for '+address, form_action=url_for('stats',address=address)), 403
+
     if authed:
         enc_password = base64.b64encode(encrypt(pixel.access_password))
         enc_password = str(enc_password, 'utf-8')
@@ -128,8 +131,6 @@ def stats(address):
                 change_password_action=url_for('change_password'),
                 delete_userpage=url_for('delete',address=pixel.address))
 
-    else:
-        return 'Password is incorrect, please press the back button and try again', 403
 
 @app.route('/delete/<address>', methods=['GET','POST'])
 def delete(address):
@@ -138,7 +139,7 @@ def delete(address):
     except DoesNotExist:
         return 'pixel id '+address+' doesnt exist', 404
     if request.method=='GET':
-        return render_template('password_validate.html',action='delete the pixel at '+address, form_action=url_for('delete',address=address))
+        return render_template('password_validate.html', fail=False, action='delete the pixel at '+address, form_action=url_for('delete',address=address))
     if hash_password(bytes(request.form['password'], 'utf-8'))==pixel.access_password:
         del_query = Visit.delete().where(Visit.pixel==pixel)
         del_rows = del_query.execute()
@@ -150,6 +151,9 @@ def delete(address):
                 new_userpage=url_for('create'))
         pixel.delete_instance()
         return response
+    else:
+        return render_template('password_validate.html', fail=True, action='delete the pixel at '+address, form_action=url_for('delete',address=address)), 403
+
 
 @app.route('/delete_visit', methods=['POST'])
 def delete_visit():
