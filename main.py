@@ -1,14 +1,18 @@
-from flask import Flask, make_response, request, render_template, url_for
+from flask import Flask, make_response, request, render_template, url_for, session
 from peewee import *
 from Crypto.Cipher import AES
 from Crypto import Random
 
 app = Flask(__name__)
 
+app.config['SECRET_KEY'] = 'So secret, much spoopy'
+import datetime
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=5)
+
+
 import uuid
 import hashlib
 import base64
-import datetime
 import json
 import traceback
 
@@ -35,8 +39,14 @@ class Visit(MyModel):
     additional_params = TextField()
 
 
+class User(MyModel):
+    email = CharField(unique=True)
+    password = BlobField()
+    username = CharField(unique=True)
+
+
 db.connect()
-db.create_tables([Pixel, Visit])
+db.create_tables([Pixel, Visit, User])
 db.close()
 
 secret_key = Random.new().read(16)
@@ -50,7 +60,11 @@ def decrypt(d):
     return cipher.decrypt(d)
 
 def hash_password(p):
-    return hashlib.scrypt(p, salt=b'SuperCaliFrag1l!st1que_Exp1al1d0c10us!', n=16384, r=8, p=1)
+    if isinstance(p, bytes):
+        return hashlib.scrypt(p, salt=b'SuperCaliFrag1l!st1que_Exp1al1d0c10us!', n=16384, r=8, p=1)
+    else:
+        return hashlib.scrypt(bytes(p, 'utf-8'), salt=b'SuperCaliFrag1l!st1que_Exp1al1d0c10us!', n=16384, r=8, p=1)
+
 
 
 PNG_PIXEL = base64.b64decode(b'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGP6zwAAAgcBApocMXEAAAAASUVORK5CYII=')
@@ -190,5 +204,51 @@ def change_password():
     else:
         return render_template('change_password_fail.html', stats_page=url_for('stats',address=pixel.address))
 
+
+
+@app.route('/register', methods=['GET','POST'])
+def register():
+    if request.method=='GET':
+        return render_template('registration_form.html')
+    if request.form['referral']!='AmuseYourFriends_ConfoundYourEnemies':
+        return render_template('registration_form_failure.html', error='Referral password is incorrect. Please contact the administrator or another user of the website for access to it.')
+    try:
+        user = User.create(username=request.form['username'], email=request.form['email'], password=hash_password(request.form['password']))
+        user.save()
+    except IntegrityError:
+        return render_template('registration_form_failure.html', error='A user with this username and/or email already exists.')
+
+
+    session.permanent = True
+    session['username'] = user.username
+    return 'Logged in as '+user.username
+
+@app.route('/login', methods=['GET','POST'])
+def login():
+    try:
+        if session.new == False and session['username']:
+            try:
+                user = User.select().where(User.username==session['username']).get()
+                return 'Logged in as '+user.username
+            except User.DoesNotExist:
+                del session['username']
+                session.permanent = False
+    except KeyError:
+        pass
+    if request.method == 'GET':
+        return render_template('login_form.html')
+    uname = request.form['username']
+    try:
+        user = User.get(User.username==uname or User.email == uname)
+    except User.DoesNotExist:
+        return render_template('login_form_failure.html', error='User not found, please register first.')
+    if user.password!=hash_password(request.form['password']):
+        return render_template('login_form_failure.html', error='Password incorrect, please try again.')
+    session.permanent = True
+    session['username'] = user.username
+
+    return 'Logged in as '+user.username
+
+
 if __name__ == '__main__':
-    app.run()
+    app.run(port=5001)

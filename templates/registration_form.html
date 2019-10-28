@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+	<head><title>Registration</title></head>
+	<body>
+		<h1> Create an account </h1>
+
+		{% block error_message %}{% endblock %}
+
+		<form method="post">
+			Username: <input type="text" name="username" required><br>
+			Email: <input type="email" name="email"><br>
+			Password: <input type="password" name="password" required><br>
+			Referral password: <input type="password" name="referral" required><br>
+			<input type="submit" value="Submit">
+		</form>
+</html>
