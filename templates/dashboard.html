@@ -17,8 +17,24 @@
 {% endwith %}
 
 		<table border=1>
-			<tr><th>Delete?</th><th>Name</th><th>Endpoint</th></tr>
-			<tr><td colspan=3>TBI</td></tr>
+			<tr><th>Action</th><th>Name</th><th>Endpoint</th><th>Visits</th><th>Last accessed</th></tr>
+			{% for pixel in user.pixels %}
+			<tr>
+				<td><form method=post action="{{url_for('delete_pixel') }}"><input type=hidden name="pixel-id" value="{{pixel.pixel_id}}"><input type="submit" value="X"></form></td>
+				<td>{{pixel.name}}</td>
+				<td>{{url_for('serve_pixel',address='', _external=True) ~ pixel.address}}</td>
+				<td>{{pixel.visits.__len__()}}</td>
+				<td>TBI</td>
+			</tr>
+			{% endfor %}
+			<form method=post action="{{ url_for('create_pixel') }}"><tr>
+				<td><input type="submit" value="+"></td>
+				<td><input type="text" name="name" required></td>
+				<td> <code>{{ url_for('serve_pixel',address='', _external=True) }}</code> <input type="text" name="endpoint" value="{{uuid.uuid4()~''}}" required> </td>
+				<td>-1</td>
+				<td>never</td>
+
+			</tr></form>
 		</table>
 		<br>
 		<br>
