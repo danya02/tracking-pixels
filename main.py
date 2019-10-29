@@ -1,4 +1,4 @@
-from flask import Flask, make_response, request, render_template, url_for, session, redirect
+from flask import Flask, make_response, request, render_template, url_for, session, redirect, flash
 from peewee import *
 from Crypto.Cipher import AES
 from Crypto import Random
@@ -190,20 +190,20 @@ def delete_visit():
 
 
 
-@app.route('/change_password', methods=['POST'])
-def change_password():
-    pixel_id = request.form['pixel_id']
-    try:
-        pixel = Pixel.get(Pixel.pixel_id==pixel_id)
-    except DoesNotExist:
-        return 'Pixel identified by '+str(pixel_id)+' does not exist. Please start what you were doing from the beginning.', 404
-
-    if hash_password(bytes(request.form['old-password'], 'utf8'))==pixel.access_password:
-        pixel.access_password=hash_password(bytes(request.form['new-password'],'utf-8'))
-        pixel.save()
-        return render_template('change_password_ok.html',name=pixel.name,stats_page=url_for('stats',address=pixel.address))
-    else:
-        return render_template('change_password_fail.html', stats_page=url_for('stats',address=pixel.address))
+#@app.route('/change_password', methods=['POST'])
+#def change_password():
+#    pixel_id = request.form['pixel_id']
+#    try:
+#        pixel = Pixel.get(Pixel.pixel_id==pixel_id)
+#    except DoesNotExist:
+#        return 'Pixel identified by '+str(pixel_id)+' does not exist. Please start what you were doing from the beginning.', 404
+#
+#    if hash_password(bytes(request.form['old-password'], 'utf8'))==pixel.access_password:
+#        pixel.access_password=hash_password(bytes(request.form['new-password'],'utf-8'))
+#        pixel.save()
+#        return render_template('change_password_ok.html',name=pixel.name,stats_page=url_for('stats',address=pixel.address))
+#    else:
+#        return render_template('change_password_fail.html', stats_page=url_for('stats',address=pixel.address))
 
 
 
@@ -239,17 +239,34 @@ def needs_auth(func):
                     except User.DoesNotExist:
                         del session['username']
                         session.permanent = False
-                        return redirect(url_for('login', redir=request.url), code=303)
+                        return redirect(url_for('login', redir=request.script_root+request.full_path), code=303)
             except KeyError:
-                return redirect(url_for('login', redir=request.url), code=303)
+                return redirect(url_for('login', redir=request.script_root+request.full_path), code=303)
     return authed_func
 
 
 @app.route('/dashboard/')
 @needs_auth
 def dashboard(user=None):
-    return 'Dashboard under user '+user.username
+    return render_template('dashboard.html', user=user)
 
+@app.route('/change_password', methods=['POST'])
+@needs_auth
+def change_password(user=None):
+    if user.password == hash_password(request.form['old-password']):
+        user.password = hash_password(request.form['new-password'])
+        user.save()
+        flash('Your password has been successfully altered!')
+    else:
+        flash('Your old password was not correct.')
+    return redirect(url_for('dashboard'))
+
+@app.route('/logout/')
+def log_out():
+    session.permanent = None
+    del session['username']
+    return redirect(url_for('login'))
+        
 
 @app.route('/login/', methods=['GET','POST'])
 @app.route('/login/<redir>', methods=['GET','POST'])

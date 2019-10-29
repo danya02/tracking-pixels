@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+	<head><title> Tracking pixel dashboard</title></head>
+	<body>
+		<h1> Dashboard </h1>
+
+		<p> {{ user.username }} <a href="{{ url_for('log_out') }}">Log out?</a>
+		
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class=flashes>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+
+		<table border=1>
+			<tr><th>Delete?</th><th>Name</th><th>Endpoint</th></tr>
+			<tr><td colspan=3>TBI</td></tr>
+		</table>
+		<br>
+		<br>
+		<br>
+		Change your password:
+		<form action="{{ url_for('change_password') }}" method="post">
+			Your current password: <input type="password" name="old-password"><br>	
+			Your new password: <input type="password" name="new-password"><br>
+			<input type="submit" name="Change password!"><br>
+		</form>
+</html>
