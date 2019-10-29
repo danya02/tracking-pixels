@@ -9,7 +9,7 @@ app.config['SECRET_KEY'] = 'So secret, much spoopy'
 import datetime
 app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=5)
 
-
+import time
 import uuid
 import hashlib
 import base64
@@ -67,6 +67,46 @@ def hash_password(p):
         return hashlib.scrypt(p, salt=b'SuperCaliFrag1l!st1que_Exp1al1d0c10us!', n=16384, r=8, p=1)
     else:
         return hashlib.scrypt(bytes(p, 'utf-8'), salt=b'SuperCaliFrag1l!st1que_Exp1al1d0c10us!', n=16384, r=8, p=1)
+
+
+# from https://stackoverflow.com/a/5333305
+def readable_delta(from_seconds, until_seconds=None):
+    '''Returns a nice readable delta.
+
+    readable_delta(1, 2)           # 1 second ago
+    readable_delta(1000, 2000)     # 16 minutes ago
+    readable_delta(1000, 9000)     # 2 hours, 133 minutes ago
+    readable_delta(1000, 987650)   # 11 days ago
+    readable_delta(1000)           # 15049 days ago (relative to now)
+    '''
+
+    if not until_seconds:
+        until_seconds = time.time()
+
+    seconds = until_seconds - from_seconds
+    delta = datetime.timedelta(seconds=seconds)
+
+    # deltas store time as seconds and days, we have to get hours and minutes ourselves
+    delta_minutes = delta.seconds // 60
+    delta_hours = delta_minutes // 60
+
+    ## show a fuzzy but useful approximation of the time delta
+    if delta.days:
+        return '%d day%s, ' % (delta.days, plur(delta.days)) + '%d hour%s, %d minute%s ago' % (delta_hours % 24, plur(delta_hours), delta_minutes, plur(delta_minutes))
+    elif delta_hours:
+        return '%d hour%s, %d minute%s ago' % (delta_hours, plur(delta_hours), delta_minutes, plur(delta_minutes))
+    elif delta_minutes:
+        return '%d minute%s ago' % (delta_minutes, plur(delta_minutes))
+    else:
+        return '%d second%s ago' % (delta.seconds, plur(delta.seconds))
+
+def plur(it):
+    '''Quick way to know when you should pluralize something.'''
+    try:
+        size = len(it)
+    except TypeError:
+        size = int(it)
+    return '' if size==1 else 's'
 
 
 
@@ -219,7 +259,7 @@ def needs_auth(func):
 @app.route('/dashboard/')
 @needs_auth
 def dashboard(user=None):
-    return render_template('dashboard.html', user=user, uuid=uuid)
+    return render_template('dashboard.html', user=user, uuid=uuid, Visit=Visit, datetime=datetime, readable_delta=readable_delta)
 
 def to_dash():
     return redirect(url_for('dashboard'))

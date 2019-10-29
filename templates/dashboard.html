@@ -26,7 +26,14 @@
 				<td><code>{{url_for('serve_pixel',address='', _external=True) ~ pixel.address}}</code></td>
 				{% endwith %}
 				<td>{{pixel.visits.__len__()}}</td>
-				<td>TBI</td>
+				{% if pixel.visits.__len__() ==0 %}
+				<td>never</td>
+				{% else %}
+				{% with date=pixel.visits.order_by(Visit.access_date.desc()).get().access_date %}
+
+				<td>{{date}} ({{readable_delta(datetime.datetime.timestamp(date))}})</td>
+				{% endwith %}
+				{% endif %}
 			</tr>
 			{% endfor %}
 			<form method=post action="{{ url_for('create_pixel') }}"><tr>
