@@ -115,39 +115,6 @@ def serve_pixel(address):
 #        traceback.print_exc()
 #        return render_template('create_pixel_result.html', success=False, traceback=traceback.format_exc(), **kwargs)
 
-#@app.route('/stats/<address>', methods=['GET', 'POST'])
-#def stats(address):
-#    try:
-#        pixel = Pixel.get(Pixel.address==address)
-#    except DoesNotExist:
-#        return 'pixel id '+address+' doesnt exist', 404
-#    if request.method=='GET':
-#        return render_template('password_validate.html',fail=False,action='view statistics for '+address, form_action=url_for('stats',address=address))
-    
-#    authed = False
-#    try:
-#        authed = authed or hash_password(bytes(request.form['password'], 'utf-8'))==pixel.access_password
-#    except:
-#        pass
-#    try:
-#        dec_pass = decrypt(base64.b64decode(bytes(request.form['enc_password'], 'utf-8')))
-#        authed = authed or dec_pass==pixel.access_password
-#    except:
-#        pass
-#    if not authed:
-#        return render_template('password_validate.html',fail=True,action='view statistics for '+address, form_action=url_for('stats',address=address)), 403
-#
-#    if authed:
-#        enc_password = base64.b64encode(encrypt(pixel.access_password))
-#        enc_password = str(enc_password, 'utf-8')
-#        return render_template('view_stats.html', query_result=pixel.visits,
-#                enc_password=enc_password,
-#                name=pixel.name,
-#                description=pixel.description,
-#                pixel_id=pixel.pixel_id,
-#                visit_delete_action=url_for('delete_visit'),
-#                change_password_action=url_for('change_password'),
-#                delete_userpage=url_for('delete',address=pixel.address))
 #
 #
 #@app.route('/delete/<address>', methods=['GET','POST'])
@@ -284,7 +251,7 @@ def delete_pixel(user=None):
     try:
         pid = int(request.form['pixel-id'])
     except:
-        flash('Your request to delete a pixel was malformed.')
+        flash('Your request to delete a pixel was malformed. Are you a dirty hacker?')
         return to_dash()
     try:
         pixel = Pixel.get(Pixel.pixel_id==int(request.form['pixel-id']))
@@ -297,6 +264,48 @@ def delete_pixel(user=None):
     Visit.delete().where(Visit.pixel==pixel).execute()
     pixel.delete_instance()
     return to_dash()
+
+@app.route('/stats/<address>')
+def stats(address):
+    try:
+        pixel = Pixel.get(Pixel.address==address)
+    except Pixel.DoesNotExist:
+        flash('This pixel does not exist. Has it been deleted recently?')
+        return to_dash()
+    return render_template('stats.html', pixel=pixel)
+
+@app.route('/destroy-visit/', methods=['POST'])
+@needs_auth
+def delete_visit(user=None):
+    try:
+        pixel_id = int(request.form['pixel-id'])
+        visit_id = int(request.form['visit-id'])
+    except:
+        flash('Your request to delete a visit is malformed. Are you a dirty hacker?')
+        return to_dash()
+    try:
+        pixel = Pixel.get(Pixel.pixel_id==pixel_id)
+    except Pixel.DoesNotExist:
+        flash('This pixel does not exist. Has it been recently deleted?')
+        return to_dash()
+
+    if pixel.owner != user:
+        flash('This pixel does not belong to you. Have you re-authorized in another tab?')
+        return to_dash()
+
+    redir = redirect(url_for('stats', address=pixel.address))
+
+    try:
+        visit = Visit.get(Visit.visit_id==visit_id)
+    except Visit.DoesNotExist:
+        flash('The visit to be deleted does not exist. Has it been deleted already?')
+        return redir
+    if visit.pixel != pixel:
+        flash('This visit does not belong to the pixel the client thinks it belongs to. Are you a dirty hacker?')
+        return redir
+    visit.delete_instance()
+    return redir
+
 
 @app.route('/logout/')
 def log_out():

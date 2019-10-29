@@ -21,8 +21,10 @@
 			{% for pixel in user.pixels %}
 			<tr>
 				<td><form method=post action="{{url_for('delete_pixel') }}"><input type=hidden name="pixel-id" value="{{pixel.pixel_id}}"><input type="submit" value="X"></form></td>
-				<td>{{pixel.name}}</td>
-				<td>{{url_for('serve_pixel',address='', _external=True) ~ pixel.address}}</td>
+				{% with stat=url_for('stats', address=pixel.address) %}
+				<td><a href="{{stat}}">{{pixel.name}}</a></td>
+				<td><code>{{url_for('serve_pixel',address='', _external=True) ~ pixel.address}}</code></td>
+				{% endwith %}
 				<td>{{pixel.visits.__len__()}}</td>
 				<td>TBI</td>
 			</tr>
