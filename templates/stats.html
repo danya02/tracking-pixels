@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+	<head><title>{{pixel.name}} stats</title></head>
+	<body>
+		<h1> {{pixel.name}} stats </h1>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class=flashes>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+
+		<form action="{{ url_for('alter_pixel') }}" method=post>
+			<input type=hidden name=pixel-id value="{{pixel.pixel_id}}">
+			Name: <input type=text name=name value="{{pixel.name}}"><br>
+			<textarea name=description rows="10" cols="35">{{pixel.description}}</textarea><br>
+			Endpoint: <code>{{url_for('serve_pixel',address='', _external=True)}}</code> <input type=text name=endpoint value="{{pixel.address}}" maxlength="192"><br>
+			<input type=submit value="Alter pixel!"><br>
+		</form>
+
+		<table border=1>
+			<tr><th>Delete?</th><th>Date and time</th><th>IP address</th><th>User-agent</th><th>Additional GET params</th></tr>
+			{% for visit in pixel.visits %}
+			<tr>
+			<td><form action="{{url_for('delete_visit')}}" method='post'><input type=submit value="X"><input type=hidden name=visit-id value="{{visit.visit_id}}"><input type=hidden name=pixel-id value="{{pixel.pixel_id}}"></form></td>
+			<td>{{visit.access_date}}</td>
+			<td>{{visit.ip_address}}</td>
+			<td>{{visit.user_agent}}</td>
+			<td>{{visit.additional_params}}</td>
+			</tr>
+			{% endfor %}
+		</table>
+</html>

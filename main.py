@@ -81,7 +81,7 @@ def after_request(response):
     db.close()
     return response
 
-@app.route('/<address>')
+@app.route('/<path:address>')
 def serve_pixel(address):
     try:
         pixel = Pixel.get(Pixel.address==address)
@@ -305,6 +305,35 @@ def delete_visit(user=None):
         return redir
     visit.delete_instance()
     return redir
+
+@app.route('/alter-pixel', methods=['POST'])
+@needs_auth
+def alter_pixel(user=None):
+    try:
+        pid = int(request.form['pixel-id'])
+    except:
+        flash('Your request to alter a pixel was malformed. Are you a dirty hacker?')
+        return to_dash()
+    try:
+        pixel = Pixel.get(Pixel.pixel_id==int(request.form['pixel-id']))
+    except Pixel.DoesNotExist:
+        flash('This pixel does not exist. Has it already been deleted?')
+        return to_dash()
+    if pixel.owner != user:
+        flash('You do not own this pixel. Have you re-authorized in another tab?')
+        return to_dash()
+
+    try:
+        pixel.name = request.form['name']
+        pixel.description = request.form['description']
+        if len(request.form['endpoint'])>240:
+            raise KeyError('endpoint too long')
+        pixel.address = request.form['endpoint']
+    except KeyError as k:
+        flash('Necessary field of alter pixel form ('+k.args[0]+') was missing or invalid. Are you a dirty hacker?')
+        return redirect(url_for('stats', address=pixel.address))
+    pixel.save()
+    return redirect(url_for('stats', address=pixel.address))
 
 
 @app.route('/logout/')
