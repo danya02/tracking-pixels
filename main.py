@@ -1,4 +1,4 @@
-from flask import Flask, make_response, request, render_template, url_for, session
+from flask import Flask, make_response, request, render_template, url_for, session, redirect
 from peewee import *
 from Crypto.Cipher import AES
 from Crypto import Random
@@ -15,6 +15,7 @@ import hashlib
 import base64
 import json
 import traceback
+from functools import wraps
 
 db = SqliteDatabase('tracking-pixels.db')
 
@@ -206,7 +207,7 @@ def change_password():
 
 
 
-@app.route('/register', methods=['GET','POST'])
+@app.route('/register/', methods=['GET','POST'])
 def register():
     if request.method=='GET':
         return render_template('registration_form.html')
@@ -221,15 +222,45 @@ def register():
 
     session.permanent = True
     session['username'] = user.username
-    return 'Logged in as '+user.username
+    
+    redir = url_for('dashboard')
 
-@app.route('/login', methods=['GET','POST'])
-def login():
+    return redirect(redir, code=303)
+
+
+def needs_auth(func):
+    @wraps(func)
+    def authed_func(*args, **kwargs):
+            try:
+                if session.new == False and session['username']:
+                    try:
+                        user = User.select().where(User.username==session['username']).get()
+                        return func(*args, **kwargs, user=user)
+                    except User.DoesNotExist:
+                        del session['username']
+                        session.permanent = False
+                        return redirect(url_for('login', redir=request.url), code=303)
+            except KeyError:
+                return redirect(url_for('login', redir=request.url), code=303)
+    return authed_func
+
+
+@app.route('/dashboard/')
+@needs_auth
+def dashboard(user=None):
+    return 'Dashboard under user '+user.username
+
+
+@app.route('/login/', methods=['GET','POST'])
+@app.route('/login/<redir>', methods=['GET','POST'])
+def login(redir=None):
     try:
         if session.new == False and session['username']:
             try:
                 user = User.select().where(User.username==session['username']).get()
-                return 'Logged in as '+user.username
+                if not redir: redir = url_for('dashboard')
+                return redirect(redir, code=303)
+            
             except User.DoesNotExist:
                 del session['username']
                 session.permanent = False
@@ -247,8 +278,11 @@ def login():
     session.permanent = True
     session['username'] = user.username
 
-    return 'Logged in as '+user.username
+    if not redir: redir = url_for('dashboard')
+
+    return redirect(redir, code=303)
+
 
 
 if __name__ == '__main__':
-    app.run(port=5001)
+    app.run(debug=True, port=5001)
