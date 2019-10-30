@@ -274,11 +274,21 @@ def change_password(user=None):
 @app.route('/create-pixel', methods=['POST'])
 @needs_auth
 def create_pixel(user=None):
-    p = Pixel(name=request.form['name'],
-            owner=user,
-            address=request.form['endpoint'],
-            description='No description set yet, replace this with your description!')
-    p.save()
+    try:
+        try:
+            Access.get(Access.address==request.form['endpoint'])
+        except DoesNotExist: pass
+        else: raise FileExistsError
+        p = Pixel(name=request.form['name'],
+                owner=user,
+                address=request.form['endpoint'],
+                description='No description set yet, replace this with your description!')
+        p.save()
+    except IntegrityError:
+        flash('A pixel with this endpoint address already exists.')
+    except FileExistsError:
+        flash('This endpoint address is already in use by an access.')
+
     return to_dash()
 
 @app.route('/destroy-pixel/', methods=['POST'])
@@ -359,15 +369,28 @@ def alter_pixel(user=None):
         flash('You do not own this pixel. Have you re-authorized in another tab?')
         return to_dash()
 
+
     try:
+        try:
+            Access.get(Access.address==request.form['endpoint'])
+        except DoesNotExist: pass
+        else: raise FileExistsError
         pixel.name = request.form['name']
         pixel.description = request.form['description']
         if len(request.form['endpoint'])>240:
             raise KeyError('endpoint too long')
+        prevaddr = pixel.address
         pixel.address = request.form['endpoint']
+        pixel.save()
     except KeyError as k:
         flash('Necessary field of alter pixel form ('+k.args[0]+') was missing or invalid. Are you a dirty hacker?')
         return redirect(url_for('stats', address=pixel.address))
+    except IntegrityError:
+        flash('A pixel with this endpoint address already exists.')
+        return redirect(url_for('stats', address=prevaddr))
+    except FileExistsError:
+        flash('This endpoint address is already in use by an access.')
+        return redirect(url_for('stats', address=prevaddr))
     pixel.save()
     return redirect(url_for('stats', address=pixel.address))
 
@@ -422,10 +445,8 @@ def create_access(user=None):
     print(request.form)
     for i in values:
         if i in request.form:
-            print(i,'ON')
             access.__setattr__(values[i], True)
         else:
-            print(i,'OFF')
             access.__setattr__(values[i], False)
     access.address = request.form['endpoint']
     access.name=request.form['name']
