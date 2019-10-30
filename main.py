@@ -1,7 +1,5 @@
-from flask import Flask, make_response, request, render_template, url_for, session, redirect, flash
+from flask import Flask, make_response, abort, request, render_template, url_for, session, redirect, flash
 from peewee import *
-from Crypto.Cipher import AES
-from Crypto import Random
 
 app = Flask(__name__)
 
@@ -45,22 +43,25 @@ class Visit(MyModel):
     user_agent = TextField()
     additional_params = TextField()
 
+class Access(MyModel):
+    name = TextField()
+    pixel = ForeignKeyField(Pixel, backref='accesses')
+    access_date = BooleanField(default=True)
+    ip_address = BooleanField(default=True)
+    user_agent = BooleanField(default=True)
+    additional_params = BooleanField(default=True)
+    readable_rows = IntegerField(default=0)
+    password = BlobField()
+    address = CharField(unique=True)
+    
+
 
 
 
 db.connect()
-db.create_tables([Pixel, Visit, User])
+db.create_tables([Pixel, Visit, User, Access])
 db.close()
 
-secret_key = Random.new().read(16)
-
-def encrypt(d):
-    cipher = AES.new(secret_key, AES.MODE_ECB)
-    return cipher.encrypt(d)
-
-def decrypt(d):
-    cipher = AES.new(secret_key, AES.MODE_ECB)
-    return cipher.decrypt(d)
 
 def hash_password(p):
     if isinstance(p, bytes):
@@ -94,7 +95,7 @@ def readable_delta(from_seconds, until_seconds=None):
     if delta.days:
         return '%d day%s, ' % (delta.days, plur(delta.days)) + '%d hour%s, %d minute%s ago' % (delta_hours % 24, plur(delta_hours), delta_minutes, plur(delta_minutes))
     elif delta_hours:
-        return '%d hour%s, %d minute%s ago' % (delta_hours, plur(delta_hours), delta_minutes, plur(delta_minutes))
+        return '%d hour%s, %d minute%s ago' % (delta_hours, plur(delta_hours), delta_minutes%60, plur(delta_minutes))
     elif delta_minutes:
         return '%d minute%s ago' % (delta_minutes, plur(delta_minutes))
     else:
@@ -121,12 +122,23 @@ def after_request(response):
     db.close()
     return response
 
-@app.route('/<path:address>')
+@app.route('/<path:address>', methods=['GET','POST'])
 def serve_pixel(address):
+    if request.method=='POST': # then it could only have come from an access
+        try:
+            access = Access.get(Access.address==address)
+        except DoesNotExist: 
+            return abort(404)
+        return serve_access(access, post=True)
+
     try:
-        pixel = Pixel.get(Pixel.address==address)
-    except DoesNotExist:
-        pass # may return error here instead, but focus on concealment of pixel -- if this errors while embedded, the pixel may be visible as a placeholder
+        pixel = Pixel.get(Pixel.address==address) # if this is a pixel, we need its model for logging
+    except DoesNotExist: # but it may also be an access because they share a namespace
+        try:
+            access = Access.get(Access.address==address)
+            return serve_access(access)
+        except DoesNotExist: # and if there isn't an access either
+            pass # may return error here instead, but focus on concealment of pixel -- if this errors while embedded, the pixel may be visible as a placeholder
     else:
         if Visit.select().where(Visit.pixel == pixel).count()==0:
             pass # TODO: do something interesting if it's the first visit on this pixel
@@ -136,84 +148,25 @@ def serve_pixel(address):
     response.headers.set('Content-Type', 'image/png')
     return response
 
-#@app.route('/create', methods=['GET','POST'])
-#def create():
-#    kwargs = {'default_address':str(uuid.uuid4()),
-#            'base_url':url_for('serve_pixel', address='', _external=True)}
-#
-#    if request.method=='GET':
-#        return render_template('create_pixel.html', **kwargs)
-#    try:
-#        name = request.form['name']
-#        address = request.form['address']
-#        description = request.form['description']
-#        password = hash_password(bytes(request.form['password'],'utf-8'))
-#        p = Pixel(name=name, address=address, description=description, access_password=password)
-#        p.save()
-#        return render_template('create_pixel_result.html', success=True, pixel_url=url_for('serve_pixel', address=address, _external=True), stats_url=url_for('stats', address=address, _external=True), password=request.form['password'], **kwargs)
-#    except:
-#        traceback.print_exc()
-#        return render_template('create_pixel_result.html', success=False, traceback=traceback.format_exc(), **kwargs)
 
-#
-#
-#@app.route('/delete/<address>', methods=['GET','POST'])
-#def delete(address):
-#    try:
-#        pixel = Pixel.get(Pixel.address==address)
-#    except DoesNotExist:
-#        return 'Pixel identified by '+address+' does not exist. Please start what you were doing from the beginning.', 404
-#    if request.method=='GET':
-#        return render_template('password_validate.html', fail=False, action='delete the pixel at '+address, form_action=url_for('delete',address=address))
-#    if hash_password(bytes(request.form['password'], 'utf-8'))==pixel.access_password:
-#        del_query = Visit.delete().where(Visit.pixel==pixel)
-#        del_rows = del_query.execute()
-#        response = render_template('delete_pixel_result.html', 
-#                name=pixel.name,
-#                description=pixel.description,
-#                visits=str(del_rows),
-#                address=url_for('serve_pixel',address=pixel.address,_external=True),
-#                new_userpage=url_for('create'))
-#        pixel.delete_instance()
-#        return response
-#    else:
-#        return render_template('password_validate.html', fail=True, action='delete the pixel at '+address, form_action=url_for('delete',address=address)), 403
+def serve_access(access, post=False):
+    if access.password!=b'':
+        if post:
+            try:
+                if hash_password(request.form['password']) == access.password:
+                    return serve_access_authed(access)
+                else:
+                    return render_template('password_validate.html', action='visit pixel stats by access', form_action=url_for('serve_pixel', address=access.address), fail=True)
+            except:
+                return render_template('password_validate.html', action='visit pixel stats by access', form_action=url_for('serve_pixel', address=access.address), fail=True)
+    
+        else:
+            return render_template('password_validate.html', action='visit pixel stats by access', form_action=url_for('serve_pixel', address=access.address), fail=False)
+    else:
+        return serve_access_authed(access)
 
-
-#@app.route('/delete_visit', methods=['POST'])
-#def delete_visit():
-#    enc_password = request.form['enc_password']
-#    password = decrypt(base64.b64decode(enc_password))
-#    try:
-#        visit = Visit.get(Visit.visit_id==request.form['visit_id'])
-#    except DoesNotExist:
-#        return 'Visit identified by '+str(request.form['visit_id'])+' does not exist. Please start what you were doing from the beginning.', 404
-#    pixel = visit.pixel
-#    ok=False
-#    if pixel.access_password == password:
-#        ok=True
-#        visit.delete_instance()
-#    return render_template('visit_delete_result.html',ok=ok,
-#            stats_action=url_for('stats', address=pixel.address),
-#            enc_password=enc_password, pixel_id=pixel.id)
-
-
-
-#@app.route('/change_password', methods=['POST'])
-#def change_password():
-#    pixel_id = request.form['pixel_id']
-#    try:
-#        pixel = Pixel.get(Pixel.pixel_id==pixel_id)
-#    except DoesNotExist:
-#        return 'Pixel identified by '+str(pixel_id)+' does not exist. Please start what you were doing from the beginning.', 404
-#
-#    if hash_password(bytes(request.form['old-password'], 'utf8'))==pixel.access_password:
-#        pixel.access_password=hash_password(bytes(request.form['new-password'],'utf-8'))
-#        pixel.save()
-#        return render_template('change_password_ok.html',name=pixel.name,stats_page=url_for('stats',address=pixel.address))
-#    else:
-#        return render_template('change_password_fail.html', stats_page=url_for('stats',address=pixel.address))
-
+def serve_access_authed(access):
+    return render_template('stats_access.html', pixel=access.pixel, access=access, Visit=Visit)
 
 
 @app.route('/register/', methods=['GET','POST'])
@@ -312,7 +265,7 @@ def stats(address):
     except Pixel.DoesNotExist:
         flash('This pixel does not exist. Has it been deleted recently?')
         return to_dash()
-    return render_template('stats.html', pixel=pixel)
+    return render_template('stats.html', pixel=pixel, uuid=uuid, bytes=bytes)
 
 @app.route('/destroy-visit/', methods=['POST'])
 @needs_auth
@@ -375,6 +328,107 @@ def alter_pixel(user=None):
     pixel.save()
     return redirect(url_for('stats', address=pixel.address))
 
+@app.route('/create_access/', methods=['POST'])
+@needs_auth
+def create_access(user=None): 
+    try:
+        pid = int(request.form['pixel_id'])
+    except:
+        flash('Your request to create an access did not include a proper pixel id. Are you a dirty hacker?')
+        return to_dash()
+    try:
+        pixel = Pixel.get(Pixel.pixel_id==pid)
+    except Pixel.DoesNotExist:
+        flash('The relevant pixel does not exist. Has it been recently deleted?')
+        return to_dash()
+    redir = redirect(url_for('stats', address=pixel.address))
+    vals = dict()
+    try:
+        for i in ['name','readable-rows','password','endpoint']:
+            vals[i]=request.form[i]
+    except KeyError as k:
+        flash('One of the expected fields in the form ('+k.args[0]+') was not present. Are you a dirty hacker?')
+        return redir
+    if pixel.owner != user:
+        flash('This pixel does not belong to you. Have you re-authorized from another tab?')
+        return to_dash()
+    try:
+        vals['readable-rows'] = int(vals['readable-rows'])
+    except:
+        flash('A value that was expected to be numeric was not. Are you a dirty hacker?')
+    try:
+        try:
+            Pixel.get(Pixel.address==vals['endpoint'])
+        except:pass
+        else: raise IntegrityError
+        
+        if 'access_id' in request.form:
+            access = Access.get(Access.id==request.form['access_id'])
+        else:
+            access = Access(pixel=pixel, name=vals['name'], readable_rows=vals['readable-rows'], password=hash_password(vals['password']) if vals['password']!='' else b'', address=vals['endpoint'])
+    except IntegrityError:
+        flash('This endpoint is already used by a different access or a pixel, please try a different one.')
+        return redir
+    except ValueError:
+        flash('An id value was not numeric. Are you a dirty hacker?')
+        return redir
+    except Access.DoesNotExist:
+        flash('This acccess does not exist. Has it been deleted recently?')
+        return redir
+    values =  {'access-time':'access_date', 'ip-addr': 'ip_address', 'useragent': 'user_agent', 'get-params':'additional_params'}
+    print(request.form)
+    for i in values:
+        if i in request.form:
+            print(i,'ON')
+            access.__setattr__(values[i], True)
+        else:
+            print(i,'OFF')
+            access.__setattr__(values[i], False)
+    access.address = request.form['endpoint']
+    access.name=request.form['name']
+    access.readable_rows=request.form['readable-rows']
+    if request.form['password']=='':
+        access.password=b''
+    elif request.form['password']=='KeepThePasswordTheSameAsItWasBefore':
+        pass
+    else:
+        access.password=hash_password(request.form['password'])
+    access.save()
+    return redir
+
+
+@app.route('/destroy-access/', methods=['POST'])
+@needs_auth
+def delete_access(user=None):
+    try:
+        pixel_id = int(request.form['pixel-id'])
+        access_id = int(request.form['access-id'])
+    except:
+        flash('Your request to delete an access is malformed. Are you a dirty hacker?')
+        return to_dash()
+    try:
+        pixel = Pixel.get(Pixel.pixel_id==pixel_id)
+    except Pixel.DoesNotExist:
+        flash('This pixel does not exist. Has it been recently deleted?')
+        return to_dash()
+
+    if pixel.owner != user:
+        flash('This pixel does not belong to you. Have you re-authorized in another tab?')
+        return to_dash()
+
+    redir = redirect(url_for('stats', address=pixel.address))
+
+    try:
+        access = Access.get(Access.id==access_id)
+    except Visit.DoesNotExist:
+        flash('The access to be deleted does not exist. Has it been deleted already?')
+        return redir
+    if access.pixel != pixel:
+        flash('This access does not belong to the pixel the client thinks it belongs to. Are you a dirty hacker?')
+        return redir
+    access.delete_instance()
+    return redir
+    
 
 @app.route('/logout/')
 def log_out():

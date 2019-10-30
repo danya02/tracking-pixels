@@ -34,4 +34,39 @@
 			</tr>
 			{% endfor %}
 		</table>
+
+		<h2>Auxillary access methods</h2>
+		<table border=1>
+			<tr><th>Action?</th><th>Name</th><th>Readable lines (0 for all)</th><th>Password (empty for none)</th><th>Endpoint</th><th>Access time</th><th>IP address</th><th>User agent</th><th>Additional GET params</th></tr>
+			{% for access in pixel.accesses %}
+			<tr>
+				<td><form method=post action="{{url_for('delete_access')}}"><input type=submit value="X"> <input type=hidden name=access-id value="{{access.id}}"><input type=hidden name=pixel-id value="{{pixel.pixel_id}}"> </form>
+					<form method=post action="{{url_for('create_access')}}"><input type=submit value="A"></td>
+			<input type=hidden name=access_id value="{{access.id}}">
+					<td><input type=text name=name value="{{access.name}}" required></td>
+					<td><input type=number name=readable-rows min=0 value={{access.readable_rows}}></td>
+					<td><input type=password name=password value="{% if (access.password!=bytes('', 'utf-8')) %}KeepThePasswordTheSameAsItWasBefore{%endif%}"></td>
+					<td><code>{{url_for('serve_pixel',address='', _external=True)}}</code><input type=text name=endpoint value="{{access.address}}"></td>
+					<td><input type=checkbox name=access-time {% if access.access_date %}checked{%endif%}></td>
+					<td><input type=checkbox name=ip-addr {% if access.ip_address %}checked{%endif%}></td>
+					<td><input type=checkbox name=useragent {% if access.user_agent %}checked{%endif%}></td>
+					<td><input type=checkbox name=get-params {% if access.additional_params %}checked{%endif%}></td>
+				</tr>
+			<input type=hidden name=pixel_id value="{{pixel.pixel_id}}">
+			</form>
+			{% endfor %}
+			<form method=post action="{{url_for('create_access')}}">
+				<input type=hidden name=pixel_id value="{{pixel.pixel_id}}">
+				<tr>
+					<td><input type=submit value="+"></td>
+					<td><input type=text name=name required></td>
+					<td><input type=number name=readable-rows min=0 value=0></td>
+					<td><input type=password name=password></td>
+					<td><code>{{url_for('serve_pixel',address='', _external=True)}}</code><input type=text name=endpoint value="{{uuid.uuid4()~''}}"></td>
+					<td><input type=checkbox name=access-time checked></td>
+					<td><input type=checkbox name=ip-addr checked></td>
+					<td><input type=checkbox name=useragent checked></td>
+					<td><input type=checkbox name=get-params checked></td>
+				</tr>
+			</form>
 </html>

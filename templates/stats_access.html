@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+	<head><title>{{pixel.name}} stats</title></head>
+	<body>
+		<h1> {{pixel.name}} stats </h1>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class=flashes>
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+
+		<form action="fakeform" method=post>
+			Name: <input type=text name=name value="{{pixel.name}}" disabled><br>
+			<textarea name=description rows="10" cols="35" disabled>{{pixel.description}}</textarea><br>
+			Endpoint: <code>{{url_for('serve_pixel',address='', _external=True)}}</code> <input disabled type=text name=endpoint value="{{pixel.address}}" maxlength="192"><br>
+		</form>
+
+		<table border=1>
+			<tr><th>Delete?</th><th>Date and time</th><th>IP address</th><th>User-agent</th><th>Additional GET params</th></tr>
+			{% for visit in pixel.visits.order_by(-Visit.access_date)[:access.readable_rows if access.readable_rows>0 else None] %}
+			<tr>
+				<td><form action="fakeform" method='post'><input disabled type=submit value="X"></form></td>
+			<td>{% if access.access_date %}{{visit.access_date}}{% else %}DENIED{%endif%}</td>
+			<td>{% if access.ip_address %}{{visit.ip_address}}{% else %}DENIED{%endif%}</td>
+			<td>{% if access.user_agent %}{{visit.user_agent}}{% else %}DENIED{%endif%}</td>
+			<td>{% if access.additional_params %}{{visit.additional_params}}{% else %}DENIED{%endif%}</td>
+			</tr>
+			{% endfor %}
+		</table>
+
+</html>
