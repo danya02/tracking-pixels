@@ -185,7 +185,7 @@ def serve_access(access, post=False):
 def serve_access_authed(access):
     return render_template('stats_access.html', pixel=access.pixel, access=access, Visit=Visit)
 
-
+    
 
 @app.route('/register/', methods=['GET','POST'])
 def register():
@@ -197,7 +197,7 @@ def register():
     if request.form['referral']!='AmuseYourFriends_ConfoundYourEnemies':
         return render_template('registration_form_failure.html', error='Referral password is incorrect. Please contact the administrator or another user of the website for access to it.')
     try:
-        user = User.get((User.username==request.form['username']) | (User.email==request.form['email']))
+        user = User.get((User.username==request.form['username']) or (User.email==request.form['email']))
     except DoesNotExist:pass
     else:
         return render_template('registration_form_failure.html', error='A user with this username and/or email already exists.')
@@ -472,12 +472,38 @@ def delete_access(user=None):
     access.delete_instance()
     return redir
     
+@app.route('/delete-account')
+@needs_auth
+def delete_account(user=None):
+    nonce = str(uuid.uuid4())
+    session['delete-account-cookie']=hash_password(nonce).hex()
+    send_email('Confirm your account deletion', user.email, 'goodbye', nonce=nonce)
+    return 'Please follow the instructions in the email that was sent to your email address.'
+
+@app.route('/destroy-account/<nonce>')
+@needs_auth
+def confirm_delete_account(nonce, user=None):
+    try:
+        if session['delete-account-cookie']==hash_password(nonce).hex():
+            with db.atomic():
+                for i in user.pixels:
+                    Visit.delete().where(Visit.pixel == i).execute()
+                    Access.delete().where(Access.pixel == i).execute()
+                    i.delete_instance()
+                user.delete_instance()
+            flash('Account deleted successfully.')
+            return log_out()
+        else:
+            return render_template('generic_error.html',error='No accout deletion cookie hash does not match.')
+    except KeyError:
+        return render_template('generic_error.html',error='No accout deletion cookie in session.')
 
 @app.route('/logout/')
 def log_out():
     session.permanent = None
     try:
         del session['username']
+        del session['delete-account-cookie']
     except KeyError:
         pass
     return redirect(url_for('login'))

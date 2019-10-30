@@ -4,18 +4,10 @@
 	<body>
 		<h1> Dashboard </h1>
 
-		<p> {{ user.username }} <a href="{{ url_for('log_out') }}">Log out?</a>
-		
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul class=flashes>
-    {% for message in messages %}
-      <li>{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+		<p> {{ user.username }} </p>
+		<p>You can <a href="{{ url_for('log_out') }}">log out</a> or <a href="{{url_for('delete_account')}}">permanently delete your account</a></p>
 
+		{% include "flashes.html" %}
 		<table border=1>
 			<tr><th>Action</th><th>Name</th><th>Endpoint</th><th>Visits</th><th>Last accessed</th></tr>
 			{% for pixel in user.pixels %}
