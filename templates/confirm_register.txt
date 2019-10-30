@@ -1,0 +1,13 @@
+Someone, hopefully you, has requested that this email be
+signed up with the beacon service.
+
+To confirm that you own this email address and want to create
+this account, please visit this URL:
+
+{{url_for('confirm_register', nonce=nonce, _external=True)}}
+
+If it was not you who asked to sign up, or if you have changed your
+mind about wanting to sign up, please let us apologise for intruding.
+You do not have to do anything else to cancel this registration.
+
+Yours, the beacon service.

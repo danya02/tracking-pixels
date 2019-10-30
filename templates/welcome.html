@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head></head><body>
+
+		<p>{{user.username}}, welcome to the beacon service!
+
+		<p>You can use this service to create web beacons, referred to on this
+		service as "<i>pixels</i>", which are accessible by links on this server. 
+These links serve a 1x1 PNG image. You can attach these to your email
+messages. When your email is read, unless it is configured otherwise, the
+recepient's email program will download the image. This service will log all
+downloads of your image, which you can later examine to find out if your
+message has been read, when, what program the reader was using, and their IP address.
+
+<p>You can also create an "<i>access</i>", which allows other people to look at the
+stats for a pixel. You can enable and disable columns for them to see, and
+you can limit how many visits they will be able to see. An access is also
+optionally password-protected.</p>
+
+<p>To get started, visit <a href="{{url_for('dashboard', _external=True)}}">your dashboard</a>.
+
+<p>Yours, the beacon service.</p>
+</body></html>

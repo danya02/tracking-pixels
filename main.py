@@ -126,6 +126,12 @@ def after_request(response):
     db.close()
     return response
 
+def send_email(subject, recipient, template, **renderargs):
+    msg = Message(subject, sender='beacon@danya02.ru', recipients=[recipient])
+    msg.body = render_template(template+'.txt', **renderargs)
+    msg.html = render_template(template+'.html', **renderargs)
+    mail.send(msg)
+
 @app.route('/<path:address>', methods=['GET','POST'])
 def serve_pixel(address):
     if request.method=='POST': # then it could only have come from an access
@@ -153,14 +159,8 @@ def serve_pixel(address):
     response = make_response(PNG_PIXEL)
     response.headers.set('Content-Type', 'image/png')
     if send_mail:
-        msg = Message('Someone visited the pixel '+pixel.name, sender='beacon@danya02.ru',
-                    recipients=[pixel.owner.email])
-
-        renderargs = {'user':pixel.owner, 'pixel':pixel, 'visit':visit}
-        msg.body = render_template('first_access.txt', **renderargs)
-        msg.html = render_template('first_access.html', **renderargs)
         try:
-            mail.send(msg)
+            send_email('Someone visited the pixel '+pixel.name, pixel.owner.email, 'first_access', user=pixel.owner, pixel=pixel, visit=visit)
         except: # silence all errors with mail delivery -- do not interfere with pixel delivery!
             pass
     return response
@@ -186,25 +186,51 @@ def serve_access_authed(access):
     return render_template('stats_access.html', pixel=access.pixel, access=access, Visit=Visit)
 
 
+
 @app.route('/register/', methods=['GET','POST'])
 def register():
+    for i in ['username_to_register','email_to_register', 'password_to_register', 'nonce-hash']:
+        if i in session:
+            return render_template('generic_error.html', error='One of the fields that signal an ongoing registration was detected. Is a registration in progress?')
     if request.method=='GET':
         return render_template('registration_form.html')
     if request.form['referral']!='AmuseYourFriends_ConfoundYourEnemies':
         return render_template('registration_form_failure.html', error='Referral password is incorrect. Please contact the administrator or another user of the website for access to it.')
     try:
-        user = User.create(username=request.form['username'], email=request.form['email'], password=hash_password(request.form['password']))
-        user.save()
-    except IntegrityError:
+        user = User.get((User.username==request.form['username']) | (User.email==request.form['email']))
+    except DoesNotExist:pass
+    else:
         return render_template('registration_form_failure.html', error='A user with this username and/or email already exists.')
 
 
     session.permanent = True
-    session['username'] = user.username
-    
-    redir = url_for('dashboard')
+    session['username_to_register'] = request.form['username']
+    session['email_to_register'] = request.form['email']
+    session['password_to_register'] = hash_password(request.form['password']).hex()
+    nonce = str(uuid.uuid4())
+    session['nonce-hash']=hash_password(nonce).hex()
+    send_email('Confirm your registration', request.form['email'], 'confirm_register', nonce=nonce)
+    return render_template('register_see_confirm.html')
 
-    return redirect(redir, code=303)
+@app.route('/confirm-registration/<nonce>')
+def confirm_register(nonce):
+    for i in ['username_to_register','email_to_register', 'password_to_register', 'nonce-hash']:
+        if i not in session:
+            return render_template('generic_error.html', error='One or more of the required session fields ('+i+') was not set. Have you already registered, not started your registration, or are you using a different web browser from the one you registered with?')
+    if hash_password(nonce).hex() == session['nonce-hash']:
+        user = User.create(username=session['username_to_register'], email=session['email_to_register'], password=bytes.fromhex(session['password_to_register']))
+        del session['username_to_register']
+        del session['password_to_register']
+        del session['email_to_register']
+        del session['nonce-hash']
+        session['username'] = user.username
+        session.permanent = True
+        send_email('Welcome to the beacon service!', user.email, 'welcome', user=user)
+        return redirect(url_for('dashboard'))
+    else:
+        return render_template('generic_error.html', error='The nonce did not match the nonce-hash. Have you tampered with the confirmation URL?')
+
+
 
 
 def needs_auth(func):
