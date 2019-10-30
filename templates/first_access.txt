@@ -1,0 +1,16 @@
+Hello {{user.name}}.
+
+Your pixel, "{{pixel.name}}", just received its first visit.
+
+Date and time: {{visit.access_date}}
+IP address: {{visit.ip_address}}
+User-agent: {{visit.user_agent}}
+GET params: {{visit.additional_params}}
+
+You can monitor your pixel's stats at this page: {{url_for('stats', address=pixel.address, _external=True)}}
+
+It is possible that you accidentally visited the pixel when attaching it to
+your message. If so, please remove the visit at the stats page -- this
+message is only sent when the pixel has no visits and receives one.
+
+Yours, the beacon service.

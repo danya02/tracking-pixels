@@ -1,11 +1,15 @@
 from flask import Flask, make_response, abort, request, render_template, url_for, session, redirect, flash
 from peewee import *
+from flask_mail import Mail, Message
+
 
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = 'So secret, much spoopy'
 import datetime
 app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(days=5)
+
+mail = Mail(app)
 
 import time
 import uuid
@@ -131,6 +135,7 @@ def serve_pixel(address):
             return abort(404)
         return serve_access(access, post=True)
 
+    send_mail = False
     try:
         pixel = Pixel.get(Pixel.address==address) # if this is a pixel, we need its model for logging
     except DoesNotExist: # but it may also be an access because they share a namespace
@@ -140,12 +145,24 @@ def serve_pixel(address):
         except DoesNotExist: # and if there isn't an access either
             pass # may return error here instead, but focus on concealment of pixel -- if this errors while embedded, the pixel may be visible as a placeholder
     else:
-        if Visit.select().where(Visit.pixel == pixel).count()==0:
-            pass # TODO: do something interesting if it's the first visit on this pixel
+        if pixel.visits.count()==0:
+            send_mail=True
+
         visit = Visit(pixel=pixel, user_agent=request.headers.get('User-Agent', None), ip_address=request.remote_addr, additional_params=json.dumps(request.args))
         visit.save()
     response = make_response(PNG_PIXEL)
     response.headers.set('Content-Type', 'image/png')
+    if send_mail:
+        msg = Message('Someone visited the pixel '+pixel.name, sender='beacon@danya02.ru',
+                    recipients=[pixel.owner.email])
+
+        renderargs = {'user':pixel.owner, 'pixel':pixel, 'visit':visit}
+        msg.body = render_template('first_access.txt', **renderargs)
+        msg.html = render_template('first_access.html', **renderargs)
+        try:
+            mail.send(msg)
+        except: # silence all errors with mail delivery -- do not interfere with pixel delivery!
+            pass
     return response
 
 

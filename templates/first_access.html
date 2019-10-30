@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+	<head></head>
+        <body>
+
+		<p>Hello {{user.name}}.</p>
+		<p>Your pixel, "{{pixel.name}}", just received its first visit.</p>
+		<table border=1>
+			<tr><th>Date and time</th><th>IP address</th><th>User-agent</th><th>GET params</th></tr>
+			<tr><td>{{visit.access_date}}</td>
+			<td>{{visit.ip_address}}</td>
+			<td>{{visit.user_agent}}</td>
+			<td>{{visit.additional_params}}</td>
+			</tr>
+		</table>
+
+		<p>You can monitor your pixel's stats at <a href="{{url_for('stats', address=pixel.address, _external=True)}}">this page</a>.</p>
+
+		<p>It is possible that you accidentally visited the pixel when attaching it to
+your message. If so, please remove the visit at the stats page -- this
+message is only sent when the pixel has no visits and receives one.</p>
+
+		<p>Yours, the beacon service.</p>
+	</body>
+</html>
+
