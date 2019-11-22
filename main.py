@@ -57,8 +57,6 @@ class Access(MyModel):
     readable_rows = IntegerField(default=0)
     password = BlobField()
     address = CharField(unique=True)
-    
-
 
 
 
@@ -185,13 +183,12 @@ def serve_access(access, post=False):
 def serve_access_authed(access):
     return render_template('stats_access.html', pixel=access.pixel, access=access, Visit=Visit)
 
-    
 
 @app.route('/register/', methods=['GET','POST'])
 def register():
     for i in ['username_to_register','email_to_register', 'password_to_register', 'nonce-hash']:
         if i in session:
-            return render_template('generic_error.html', error='One of the fields that signal an ongoing registration was detected. Is a registration in progress?')
+            return render_template('generic_error.html', error='One of the fields that signal an ongoing registration was detected. Is a registration in progress? If so, you can <a href="' + url_for('cancel_registration')+'"> cancel it</a>.')
     if request.method=='GET':
         return render_template('registration_form.html')
     if request.form['referral']!='AmuseYourFriends_ConfoundYourEnemies':
@@ -212,6 +209,22 @@ def register():
     send_email('Confirm your registration', request.form['email'], 'confirm_register', nonce=nonce)
     return render_template('register_see_confirm.html')
 
+@app.route('/cancel-registration')
+def cancel_registration():
+    try:
+        del session['username_to_register']
+    except:pass
+    try:
+        del session['password_to_register']
+    except:pass
+    try:
+        del session['email_to_register']
+    except:pass
+    try:
+        del session['nonce-hash']
+    except: pass
+    return redirect(url_for('register'))
+
 @app.route('/confirm-registration/<nonce>')
 def confirm_register(nonce):
     for i in ['username_to_register','email_to_register', 'password_to_register', 'nonce-hash']:
@@ -219,10 +232,7 @@ def confirm_register(nonce):
             return render_template('generic_error.html', error='One or more of the required session fields ('+i+') was not set. Have you already registered, not started your registration, or are you using a different web browser from the one you registered with?')
     if hash_password(nonce).hex() == session['nonce-hash']:
         user = User.create(username=session['username_to_register'], email=session['email_to_register'], password=bytes.fromhex(session['password_to_register']))
-        del session['username_to_register']
-        del session['password_to_register']
-        del session['email_to_register']
-        del session['nonce-hash']
+        cancel_registration()
         session['username'] = user.username
         session.permanent = True
         send_email('Welcome to the beacon service!', user.email, 'welcome', user=user)
@@ -230,7 +240,33 @@ def confirm_register(nonce):
     else:
         return render_template('generic_error.html', error='The nonce did not match the nonce-hash. Have you tampered with the confirmation URL?')
 
+@app.route('/recover-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method=='GET':
+        return render_template('forgot-password.html')
+    
+    user_found = False
+    try:
+        user = User.get((User.username==request.form['username']) or (User.email==request.form['username']))
+        user_found = True
+    except User.DoesNotExist: # this user does not exist, but to frustrate abuse we will not inform the user about that
+        pass
 
+    nonce = str(uuid.uuid4())
+    session.permanent=True
+    session['pwd_reset_user'] = request['username']
+    session['pwd_reset_nonce_hash'] = hash_password(nonce).hex()
+    
+
+    if user_found:
+        link_reset = url_for('reset_password', nonce=nonce)
+        send_email('Password reset on the beacon service', user.email, 'confirm_pwd_reset', link_reset=link_reset, user=user, user_agent=request.headers.get('User-Agent', 'not specified'), ip_address=request.remote_addr)
+    
+    return render_template('forgot_password_see_mail.html')
+
+@app.route('/reset-pwd/<nonce>')
+def reset_password(nonce):
+    return 'To be implemented'
 
 
 def needs_auth(func):

@@ -1,0 +1,18 @@
+Hello {{user.name}}.
+
+Somebody, hopefully you, has requested a password reset.
+
+Date and time: {{access_date}}
+IP address: {{ip_address}}
+User-agent: {{user_agent}}
+
+If this was you, please follow this link to reset your password:
+
+{{link_reset}}
+
+If this was not you, someone may be abusing the password recovery service.
+You can ban this IP address from accessing your account by opening your
+dashboard and entering the IP address listed above into the "Banned IP
+addresses" table.
+
+Yours, the beacon service.

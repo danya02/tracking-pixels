@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+	<head></head>
+        <body>
+		<p>Hello {{user.name}}.</p>
+
+		<p>Somebody, hopefully you, has requested a password reset.</p>
+
+
+		<table border=1>
+			<tr><th>Date and time</th><th>IP address</th><th>User-agent</th></tr>
+			<tr><td>{{access_date}}</td>
+			<td>{{ip_address}}</td>
+			<td>{{user_agent}}</td>
+			</tr>
+		</table>
+		<p>If this was you, please follow <a href="{{link_reset}}">this link</a> to reset your password.</p>
+
+
+		<a>If this was not you, someone may be abusing the password recovery service.
+You can ban this IP address from accessing your account by opening your
+dashboard and entering the IP address listed above into the "Banned IP
+addresses" table.</a>
+
+		<a>Yours, the beacon service.</a>
+
+	</body>
+</html>
+
