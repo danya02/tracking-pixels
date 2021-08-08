@@ -1,0 +1,23 @@
+version: "3.8"
+services:
+  web:
+    build: .
+    expose: ["8000"]
+    labels:  # see https://doc.traefik.io/traefik/routing/providers/docker/ for all labels
+     - "traefik.enable=true"
+     - "traefik.http.routers.main-web.rule=Host(`beacon.danya02.ru`)"
+     - "traefik.http.routers.main-web.entrypoints=web"
+    networks:
+     - proxy
+    volumes:
+     - "./data.db:/data.db"
+
+# Keep in mind that the TLS is handled by the system Nginx!
+# By default, *.danya02.ru is working.
+# If you need more subdomains, configure Nginx and Certbot.
+
+# Wondering why Traefik isn't working? Check that the web container is connected to "proxy"!
+networks:
+  proxy:
+    external: true
+

@@ -1,3 +1,4 @@
 flask
 peewee
 Flask-Mail
+gunicorn>=20.1.0
